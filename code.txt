@@ -1,0 +1,93 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from sklearn.preprocessing import StandardScaler
+
+# Generate 1000 rows with realistic patterns
+np.random.seed(7)  
+
+data = []
+# Generate 400 Best Workers (3)
+for _ in range(400):
+    age = np.random.randint(25, 45)
+    bmi = np.random.normal(23, 2)
+    spo2 = np.random.normal(97, 1.5)
+    alcohol = np.random.choice(['Never', 'Occasionally'], p=[0.9, 0.1])
+    satisfaction = np.random.randint(7, 11)
+    data.append([age, bmi, spo2, alcohol, satisfaction, 3])
+
+# Generate 350 Moderate Workers (2)
+for _ in range(350):
+    age = np.random.randint(35, 58)
+    bmi = np.random.normal(26, 2.5)
+    spo2 = np.random.normal(94, 2)
+    alcohol = np.random.choice(['Never', 'Occasionally', 'Frequently'], p=[0.2, 0.7, 0.1])
+    satisfaction = np.random.randint(4, 9)
+    data.append([age, bmi, spo2, alcohol, satisfaction, 2])
+
+# Generate 250 Limited Workers (1)
+for _ in range(250):
+    age = np.random.choice([
+        np.random.randint(18, 25),
+        np.random.randint(56, 66)
+    ])
+    bmi = np.random.normal(28, 4)
+    spo2 = np.random.normal(91, 3)
+    alcohol = np.random.choice(['Never', 'Occasionally', 'Frequently'], p=[0.1, 0.3, 0.6])
+    satisfaction = np.random.randint(1, 7)
+    data.append([age, bmi, spo2, alcohol, satisfaction, 1])
+
+# Converting this data to a DataFrame
+df = pd.DataFrame(data, columns=['Age', 'BMI', 'SpO2', 'Alcohol_Consumption', 'Job_Satisfaction', 'Worker_Capability'])
+
+# Clean up any unrealistic values
+df['BMI'] = df['BMI'].clip(16.5, 35)
+df['SpO2'] = df['SpO2'].clip(85, 100)
+
+# Convert alcohol consumption to numeric
+alcohol_map = {'Never': 0, 'Occasionally': 1, 'Frequently': 2}
+df['Alcohol_Consumption'] = df['Alcohol_Consumption'].map(alcohol_map)
+
+# Split features and target
+X = df.drop('Worker_Capability', axis=1)
+y = df['Worker_Capability'] - 1
+
+# Split into train/validation/test
+X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.15, random_state=7)
+X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.18, random_state=7)
+
+# Scale the features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_val_scaled = scaler.transform(X_val)
+X_test_scaled = scaler.transform(X_test)
+
+#  neural net parameters
+model = Sequential([
+    Dense(32, activation='relu', input_shape=(5,)),
+    Dense(16, activation='relu'),
+    Dense(3, activation='softmax')
+])
+
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Train
+history = model.fit(X_train_scaled, y_train,
+                    validation_data=(X_val_scaled, y_val),
+                    epochs=50,
+                    batch_size=32,
+                    verbose=1)
+
+# Try checking with your example case
+label_map = {0: 'Limited', 1: 'Moderate', 2: 'Best'}
+example_case = [[59, 22, 97, 0, 2]]
+
+example_scaled = scaler.transform(example_case)
+predictions = model.predict(example_scaled)
+
+predicted_label = label_map[np.argmax(predictions)]
+print(f"Predicted Worker Capability: {predicted_label}")
